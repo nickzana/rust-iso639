@@ -1,3 +1,1 @@
-An ISO639_1 Language Code implementation with Serde Serialization and 
-Deserialization, Display, Debug, and Eq built in. Developed for the rms-metadata
-library.
+An ISO639 Language Code implementation developed for the rms-metadata library.
