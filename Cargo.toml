@@ -3,6 +3,12 @@ name = "iso639_enum"
 version = "0.1.0"
 authors = ["Nick Zana <me@nickzana.dev>"]
 edition = "2018"
+description = "An Enum for ISO 639 with from and to functions for all of ISO639_1, ISO639_3, name, and autonym."
+readme = "README.md"
+repository = "https://github.com/nickzana/rust-iso639"
+license = "MIT"
+keywords = ["iso639", "language", "metadata"]
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
