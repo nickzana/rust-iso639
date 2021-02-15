@@ -4,6 +4,7 @@ mod iso_639;
 mod iso_compat;
 
 pub use iso_639::Iso639;
+pub use iso_639::Iso639::*;
 pub use iso_compat::IsoCompat;
 
 #[cfg(test)]
