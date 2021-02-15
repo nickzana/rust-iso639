@@ -1,5 +1,5 @@
 [package]
-name = "iso639"
+name = "iso639_enum"
 version = "0.1.0"
 authors = ["Nick Zana <me@nickzana.dev>"]
 edition = "2018"
