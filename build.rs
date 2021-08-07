@@ -22,7 +22,7 @@ struct Language {
 
 impl Language {
     fn id(&self) -> String {
-        format!("{}", self.tag3.trim().to_title_case())
+        self.tag3.trim().to_title_case()
     }
 }
 
@@ -117,25 +117,25 @@ fn main() {
 
     writeln!(
         &mut f,
-        "fn from_name(name: &str) -> Option<Self> {{ {} }}",
+        "fn from_name(name: &str) -> Result<Self, Err> {{ {} }}",
         from_name_match_statement(&ids, &names)
     )
     .unwrap();
     writeln!(
         &mut f,
-        "fn from_iso639_3(code: &str) -> Option<Self> {{ {} }}",
+        "fn from_iso639_3(code: &str) -> Result<Self, Err> {{ {} }}",
         from_iso639_3_match_statement(&ids, &tag3s)
     )
     .unwrap();
     writeln!(
         &mut f,
-        "fn from_iso639_1(code: &str) -> Option<Self> {{ {} }}",
+        "fn from_iso639_1(code: &str) -> Result<Self, Err> {{ {} }}",
         from_iso639_1_match_statement(&ids, &tag1s)
     )
     .unwrap();
     writeln!(
         &mut f,
-        "fn from_autonym(autonym: &str) -> Option<Self>{{ {} }}",
+        "fn from_autonym(autonym: &str) -> Result<Self, Err>{{ {} }}",
         from_autonym_match_statement(&ids, &autonyms)
     )
     .unwrap();
@@ -145,8 +145,8 @@ fn main() {
 
 fn match_statement(
     matching: &str,
-    keys: &Vec<String>,
-    values: &Vec<String>,
+    keys: &[String],
+    values: &[String],
     default: Option<&str>,
 ) -> String {
     let mut s = String::new();
@@ -157,37 +157,36 @@ fn match_statement(
         s.push_str(&m);
     }
 
-    match default {
-        Some(v) => s.push_str(&format!("_ => {}", v)),
-        _ => (),
+    if let Some(v) = default {
+        s.push_str(&format!("_ => {}", v))
     }
 
-    s.push_str("}");
+    s.push('}');
     s
 }
 
-fn formatted_ids(ids: &Vec<String>) -> Vec<String> {
+fn formatted_ids(ids: &[String]) -> Vec<String> {
     ids.iter()
         .map(|i| format!("Iso639::{}", i))
         .collect::<Vec<String>>()
         .to_vec()
 }
 
-fn with_surrounding_quotes(s: &String) -> String {
+fn with_surrounding_quotes(s: &str) -> String {
     format!("\"{}\"", s)
 }
 
-fn surrounded_in_quotes(arr: &Vec<String>) -> Vec<String> {
+fn surrounded_in_quotes(arr: &[String]) -> Vec<String> {
     arr.iter()
         .map(|v| match &**v {
             "None" => v.clone(),
-            _ => with_surrounding_quotes(&v),
+            _ => with_surrounding_quotes(v),
         })
         .collect::<Vec<String>>()
         .to_vec()
 }
 
-fn none_mapped_to_literal(arr: &Vec<Option<String>>) -> Vec<String> {
+fn none_mapped_to_literal(arr: &[Option<String>]) -> Vec<String> {
     arr.iter()
         .map(|v| match v {
             Some(s) => s.clone(),
@@ -197,17 +196,17 @@ fn none_mapped_to_literal(arr: &Vec<Option<String>>) -> Vec<String> {
         .to_vec()
 }
 
-fn wrapped_in_optional_literals(arr: &Vec<String>) -> Vec<String> {
+fn wrapped_in_literals(arr: &[String], literal: &str) -> Vec<String> {
     arr.iter()
         .map(|v| match &**v {
             "None" => v.clone(),
-            _ => format!("Some({})", v),
+            _ => format!("{}({})", literal, v),
         })
         .collect::<Vec<String>>()
         .to_vec()
 }
 
-fn name_match_statement(ids: &Vec<String>, names: &Vec<String>) -> String {
+fn name_match_statement(ids: &[String], names: &[String]) -> String {
     match_statement(
         "self",
         &formatted_ids(ids),
@@ -216,7 +215,7 @@ fn name_match_statement(ids: &Vec<String>, names: &Vec<String>) -> String {
     )
 }
 
-fn iso639_3_match_statement(ids: &Vec<String>, tag3s: &Vec<String>) -> String {
+fn iso639_3_match_statement(ids: &[String], tag3s: &[String]) -> String {
     match_statement(
         "self",
         &formatted_ids(ids),
@@ -225,43 +224,49 @@ fn iso639_3_match_statement(ids: &Vec<String>, tag3s: &Vec<String>) -> String {
     )
 }
 
-fn iso639_1_match_statement(ids: &Vec<String>, tag1s: &Vec<Option<String>>) -> String {
+fn iso639_1_match_statement(ids: &[String], tag1s: &[Option<String>]) -> String {
     match_statement(
         "self",
         &formatted_ids(ids),
-        &wrapped_in_optional_literals(&surrounded_in_quotes(&none_mapped_to_literal(&tag1s))),
+        &wrapped_in_literals(
+            &surrounded_in_quotes(&none_mapped_to_literal(tag1s)),
+            "Some",
+        ),
         None,
     )
 }
 
-fn autonym_match_statement(ids: &Vec<String>, autonyms: &Vec<Option<String>>) -> String {
+fn autonym_match_statement(ids: &[String], autonyms: &[Option<String>]) -> String {
     match_statement(
         "self",
         &formatted_ids(ids),
-        &wrapped_in_optional_literals(&surrounded_in_quotes(&none_mapped_to_literal(&autonyms))),
+        &wrapped_in_literals(
+            &surrounded_in_quotes(&none_mapped_to_literal(autonyms)),
+            "Some",
+        ),
         None,
     )
 }
 
-fn from_name_match_statement(ids: &Vec<String>, names: &Vec<String>) -> String {
+fn from_name_match_statement(ids: &[String], names: &[String]) -> String {
     match_statement(
         "name",
         &surrounded_in_quotes(names),
-        &wrapped_in_optional_literals(&formatted_ids(ids)),
-        Some("None"),
+        &wrapped_in_literals(&formatted_ids(ids), "Ok"),
+        Some("Err(Err::UnknownName)"),
     )
 }
 
-fn from_iso639_3_match_statement(ids: &Vec<String>, tag3s: &Vec<String>) -> String {
+fn from_iso639_3_match_statement(ids: &[String], tag3s: &[String]) -> String {
     match_statement(
         "code",
         &surrounded_in_quotes(tag3s),
-        &wrapped_in_optional_literals(&formatted_ids(ids)),
-        Some("None"),
+        &wrapped_in_literals(&formatted_ids(ids), "Ok"),
+        Some("Err(Err::UnknownLanguage)"),
     )
 }
 
-fn from_iso639_1_match_statement(ids: &Vec<String>, tag1s: &Vec<Option<String>>) -> String {
+fn from_iso639_1_match_statement(ids: &[String], tag1s: &[Option<String>]) -> String {
     let mut filtered_tag1s: Vec<String> = vec![];
     let mut filtered_ids: Vec<String> = vec![];
 
@@ -278,12 +283,12 @@ fn from_iso639_1_match_statement(ids: &Vec<String>, tag1s: &Vec<Option<String>>)
     match_statement(
         "code",
         &surrounded_in_quotes(&filtered_tag1s),
-        &wrapped_in_optional_literals(&formatted_ids(&filtered_ids)),
-        Some("None"),
+        &wrapped_in_literals(&formatted_ids(&filtered_ids), "Ok"),
+        Some("Err(Err::UnknownIso639_1)"),
     )
 }
 
-fn from_autonym_match_statement(ids: &Vec<String>, autonyms: &Vec<Option<String>>) -> String {
+fn from_autonym_match_statement(ids: &[String], autonyms: &[Option<String>]) -> String {
     let mut filtered_autonyms: Vec<String> = vec![];
     let mut filtered_ids: Vec<String> = vec![];
 
@@ -300,7 +305,7 @@ fn from_autonym_match_statement(ids: &Vec<String>, autonyms: &Vec<Option<String>
     match_statement(
         "autonym",
         &surrounded_in_quotes(&filtered_autonyms),
-        &wrapped_in_optional_literals(&formatted_ids(&filtered_ids)),
-        Some("None"),
+        &wrapped_in_literals(&formatted_ids(&filtered_ids), "Ok"),
+        Some("Err(Err::UnknownAutonym)"),
     )
 }
