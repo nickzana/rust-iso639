@@ -2,6 +2,7 @@ extern crate inflector;
 
 use csv::ReaderBuilder;
 use inflector::Inflector;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -152,9 +153,17 @@ fn match_statement(
     let mut s = String::new();
 
     s.push_str(&format!("match {} {{", matching));
+
+    // This map avoid duplicate keys in match statements
+    // As a result, for patterns with collisions, the first (in this case, alphabetically) value will be the one that gets used
+    let mut used = HashMap::new();
+
     for (i, key) in keys.iter().enumerate() {
-        let m = format!("{} => {}, \n", key, values[i],);
-        s.push_str(&m);
+        if !used.contains_key(key) {
+            used.insert(key, true);
+            let m = format!("{} => {}, \n", key, values[i],);
+            s.push_str(&m);
+        }
     }
 
     if let Some(v) = default {
