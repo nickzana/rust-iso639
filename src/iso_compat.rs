@@ -1,8 +1,21 @@
+use std::fmt::Display;
+
+#[derive(Debug)]
 pub enum Err {
-    UnknownLanguage,
-    UnknownName,
-    UnknownIso639_1,
-    UnknownAutonym,
+    // invalid iso639_3 code provided
+    UnknownLanguage(String),
+    // invalid language name provided
+    UnknownName(String),
+    // invalid iso639_1 code provided
+    UnknownIso639_1(String),
+    // invalid autonym provided
+    UnknownAutonym(String),
+}
+
+impl Display for Err {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
 }
 
 pub trait IsoCompat
