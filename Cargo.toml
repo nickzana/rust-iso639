@@ -1,6 +1,6 @@
 [package]
 name = "iso639_enum"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Nick Zana <me@nickzana.dev>"]
 edition = "2018"
 description = "An Enum for ISO 639 with from and to functions for all of ISO639_1, ISO639_3, name, and autonym."
@@ -15,7 +15,7 @@ build = "build.rs"
 [dependencies]
 anyhow = "1.0.38"
 phf = "0.10"
-serde = "1.0"
+serde = {version = "1.0", features = ["derive"]}
 
 [build-dependencies]
 Inflector = "0.11.4"
