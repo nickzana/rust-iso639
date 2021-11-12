@@ -14,7 +14,17 @@ pub enum Err {
 
 impl Display for Err {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(
+            f,
+            "{}: {}",
+            match self {
+                Err::UnknownLanguage(_) => "Unknown ISO639_3 Language code provided",
+                Err::UnknownName(_) => "Unknown Language name provided",
+                Err::UnknownIso639_1(_) => "Unknown ISO639_1 Language code provided",
+                Err::UnknownAutonym(_) => "Unknown Autonym provided",
+            },
+            *self
+        )
     }
 }
 

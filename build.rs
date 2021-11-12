@@ -15,68 +15,30 @@ const AUTONYM: usize = 3;
 macro_rules! template {
     () => {
         r#"
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Iso639 {{
     {variants}
 }}
 
-impl IsoCompat for Iso639 {{
-    fn name(&self) -> &str {{
-        match self {{
-            {name_arms}
-        }}
-    }}
-
-    fn iso639_3(&self) -> &str {{
-        match self {{
-            {iso639_3_arms}
-        }}
-    }}
-
-    fn iso639_1(&self) -> Option<&str> {{
-        match self {{
-            {iso639_1_arms}
-            _ => None,
-        }}
-    }}
-
-    fn autonym(&self) -> Option<&str> {{
-        match self {{
-            {autonym_arms}
-            _ => None,
-        }}
-    }}
-
-    fn from_name(name: &str) -> Result<Self, Err> {{
-        match name {{
-            {from_name_arms}
-            _ => Err(Err::UnknownName(name.to_string())),
-        }}
-    }}
-
-    fn from_iso639_3(code: &str) -> Result<Self, Err> {{
-        match code {{
-            {from_iso639_3_arms}
-            _ => Err(Err::UnknownLanguage(code.to_string())),
-        }}
-    }}
-
-    fn from_iso639_1(code: &str) -> Result<Self, Err> {{
-        match code {{
-            {from_iso639_1_arms}
-            _ => Err(Err::UnknownIso639_1(code.to_string())),
-        }}
-    }}
-
-    fn from_autonym(autonym: &str) -> Result<Self, Err> {{
-        match autonym {{
-            {from_autonym_arms}
-            _ => Err(Err::UnknownAutonym(autonym.to_string())),
-        }}
-    }}
-}}
+static TO_NAME: phf::Map<i32, &'static str> = {to_name};
+static TO_ISO639_3: phf::Map<i32, &'static str> = {to_iso639_3};
+static TO_ISO639_1: phf::Map<i32, &'static str> = {to_iso639_1};
+static TO_AUTONYM: phf::Map<i32, &'static str> = {to_autonym};
+static FROM_NAMES: phf::Map<&'static str, Iso639> = {from_name};
+static FROM_ISO639_3: phf::Map<&'static str, Iso639> = {from_iso639_3};
+static FROM_ISO639_1: phf::Map<&'static str, Iso639> = {from_iso639_1};
+static FROM_AUTONYM: phf::Map<&'static str, Iso639> = {from_autonym};
 "#
     };
+}
+
+struct Language {
+    enum_val: String,
+    enum_key: String,
+    name: String,
+    iso639_3: String,
+    iso639_1: Option<String>,
+    autonym: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -93,96 +55,80 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut f = BufWriter::new(File::create(&dest_path)?);
 
     let mut variants = String::new();
+    let mut to_name = phf_codegen::Map::new();
+    let mut to_iso639_3 = phf_codegen::Map::new();
+    let mut to_iso639_1 = phf_codegen::Map::new();
+    let mut to_autonym = phf_codegen::Map::new();
 
-    let mut name_arms = String::new();
-    let mut iso639_3_arms = String::new();
-    let mut iso639_1_arms = String::new();
-    let mut autonym_arms = String::new();
-
-    let mut from_name_arms = String::new();
-    let mut from_iso639_3_arms = String::new();
-    let mut from_iso639_1_arms = String::new();
-    let mut from_autonym_arms = String::new();
+    let mut from_name = phf_codegen::Map::new();
+    let mut from_iso639_3 = phf_codegen::Map::new();
+    let mut from_iso639_1 = phf_codegen::Map::new();
+    let mut from_autonym = phf_codegen::Map::new();
 
     // Some iso639 codes share the same name, leaving the first (in this case, alphabetically) arm
     // in the match statement with any given name to be the only reachable path
     // This eliminates the warnings about unreachable code paths
-    let mut used_names = HashSet::new();
-    let mut used_autonyms = HashSet::new();
+    let mut used_names: HashSet<String> = HashSet::new();
+    let mut used_autonyms: HashSet<String> = HashSet::new();
 
-    reader.records().filter_map(|r| r.ok()).try_for_each(
-        |r: StringRecord| -> Result<(), Box<dyn std::error::Error>> {
-            let name = &r[NAME];
-            let iso639_3 = &r[TAG3].to_title_case();
-            let iso639_1 = match r[TAG1].trim() {
+    let langs: Vec<Language> = reader
+        .records()
+        .filter_map(std::result::Result::ok)
+        .map(|r: StringRecord| Language {
+            enum_val: r[TAG3].to_title_case(),
+            enum_key: format!("Iso639::{}", r[TAG3].to_title_case()),
+            name: r[NAME].to_string(),
+            iso639_3: r[TAG3].to_ascii_lowercase(),
+            iso639_1: match r[TAG1].trim() {
                 "" => None,
-                s => Some(s),
-            };
-            let autonym = match r[AUTONYM].trim() {
+                s => Some(s.to_ascii_lowercase()),
+            },
+            autonym: match r[AUTONYM].trim() {
                 "" => None,
-                s => Some(s),
-            };
+                s => Some(s.to_string()),
+            },
+        })
+        .collect();
+    for (i, l) in langs.iter().enumerate() {
+        let i = i as i32;
+        writeln!(variants, "{} = {},", l.enum_val, i)?;
 
-            // TODO: Is it possible to eliminate the extra memory allocation of format!?
-            writeln!(variants, "{},", iso639_3)?;
+        to_name.entry(i, &format!("\"{}\"", &l.name));
+        if !used_names.contains(&l.name) {
+            used_names.insert(l.name.clone());
+            from_name.entry(&l.name, &l.enum_key);
+        }
 
-            writeln!(name_arms, "Self::{} => \"{}\",", iso639_3, name)?;
-            if !used_names.contains(name) {
-                used_names.insert(name.to_string());
-                writeln!(from_name_arms, "\"{}\" => Ok(Self::{}),", name, iso639_3)?;
+        to_iso639_3.entry(i, &format!("\"{}\"", &l.iso639_3));
+        from_iso639_3.entry(&l.iso639_3, &l.enum_key);
+
+        if let Some(s) = &l.iso639_1 {
+            to_iso639_1.entry(i, &format!("\"{}\"", s));
+            from_iso639_1.entry(s, &l.enum_key);
+        }
+
+        if let Some(s) = &l.autonym {
+            to_autonym.entry(i, &format!("\"{}\"", s));
+
+            if !used_autonyms.contains(s) {
+                used_autonyms.insert(s.clone());
+                from_autonym.entry(s, &l.enum_key);
             }
-
-            writeln!(
-                iso639_3_arms,
-                "Self::{} => \"{}\",",
-                iso639_3,
-                iso639_3.to_ascii_lowercase()
-            )?;
-            writeln!(
-                from_iso639_3_arms,
-                "\"{}\" => Ok(Self::{}),",
-                iso639_3.to_ascii_lowercase(),
-                iso639_3
-            )?;
-
-            if let Some(s) = iso639_1 {
-                writeln!(
-                    iso639_1_arms,
-                    "Self::{} => Some(\"{}\"),",
-                    iso639_3,
-                    s.to_ascii_lowercase()
-                )?;
-                writeln!(
-                    from_iso639_1_arms,
-                    "\"{}\" => Ok(Self::{}),",
-                    s.to_ascii_lowercase(),
-                    iso639_3
-                )?;
-            }
-            if let Some(s) = autonym {
-                writeln!(autonym_arms, "Self::{} => Some(\"{}\"),", iso639_3, s)?;
-                if !used_autonyms.contains(s) {
-                    used_autonyms.insert(s.to_string());
-                    writeln!(from_autonym_arms, "\"{}\" => Ok(Self::{}),", s, iso639_3)?;
-                }
-            }
-
-            Ok(())
-        },
-    )?;
+        }
+    }
 
     writeln!(
         f,
         template!(),
         variants = variants,
-        name_arms = name_arms,
-        iso639_3_arms = iso639_3_arms,
-        iso639_1_arms = iso639_1_arms,
-        autonym_arms = autonym_arms,
-        from_name_arms = from_name_arms,
-        from_iso639_3_arms = from_iso639_3_arms,
-        from_iso639_1_arms = from_iso639_1_arms,
-        from_autonym_arms = from_autonym_arms
+        to_name = to_name.build(),
+        to_iso639_3 = to_iso639_3.build(),
+        to_iso639_1 = to_iso639_1.build(),
+        to_autonym = to_autonym.build(),
+        from_name = from_name.build(),
+        from_iso639_3 = from_iso639_3.build(),
+        from_iso639_1 = from_iso639_1.build(),
+        from_autonym = from_autonym.build(),
     )?;
 
     Ok(())
