@@ -1,6 +1,6 @@
 [package]
 name = "iso639_enum"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Nick Zana <me@nickzana.dev>"]
 edition = "2018"
 description = "An Enum for ISO 639 with from and to functions for all of ISO639_1, ISO639_3, name, and autonym."

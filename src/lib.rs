@@ -5,6 +5,7 @@ mod iso_compat;
 mod localized_string;
 
 pub use iso_639::Iso639 as Language;
+pub use iso_compat::Err;
 pub use localized_string::*;
 
 #[cfg(test)]
