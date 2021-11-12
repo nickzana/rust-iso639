@@ -2,9 +2,10 @@ extern crate anyhow;
 
 mod iso_639;
 mod iso_compat;
+mod localized_string;
 
-pub use iso_639::Iso639;
-pub use iso_compat::*;
+pub use iso_639::Iso639 as Language;
+pub use localized_string::*;
 
 #[cfg(test)]
 mod tests {
